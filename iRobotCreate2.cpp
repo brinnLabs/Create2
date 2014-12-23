@@ -8,7 +8,7 @@
 iRobotCreate2::iRobotCreate2(bool useSoftSerial, byte rxPin, byte txPin, byte baudRateChangePin){
 	usingSoftSerial = useSoftSerial;
 	_brcPin = baudRateChangePin;
-	
+
 	if (useSoftSerial){
 		//SoftwareSerial newSS(rxPin, txPin);
 		softSerial = SoftwareSerial(rxPin, txPin);
@@ -29,6 +29,9 @@ iRobotCreate2::iRobotCreate2(bool useSoftSerial, byte rxPin, byte txPin, byte ba
 	_spotLED = false;
 	_dockLED = false;
 	_warningLED = false;
+
+	_isPaused = false;
+	_isStreaming = false;
 
 	_digit1 = 0;
 	_digit2 = 0;
@@ -59,7 +62,7 @@ void iRobotCreate2::resetBaudRate(){
 	delay(2000);
 	digitalWrite(13, HIGH);
 	digitalWrite(_brcPin, HIGH);
-	for (int i = 0; i<3; i++){
+	for (int i = 0; i < 3; i++){
 		digitalWrite(13, LOW);
 		digitalWrite(_brcPin, LOW);
 		delay(200);
@@ -213,8 +216,8 @@ void iRobotCreate2::schedule(byte days, byte hour[], byte minute[]){
 				Serial.write(minute[timeCounter++]);
 			}
 			else {
-				Serial.write(0);
-				Serial.write(0);
+				Serial.write((byte)0x00);
+				Serial.write((byte)0x00);
 			}
 		}
 	}
@@ -319,10 +322,10 @@ void iRobotCreate2::driveWheels(int right, int left){
 	}
 }
 void iRobotCreate2::driveLeft(int left){
-	driveWheels(0, left);
+	driveWheels(left, 0);
 }
 void iRobotCreate2::driveRight(int right){
-	driveWheels(right, 0);
+	driveWheels(0, right);
 }
 void iRobotCreate2::driveWheelsPWM(int rightPWM, int leftPWM){
 	clamp(rightPWM, -255, 255);
@@ -543,5 +546,359 @@ void iRobotCreate2::setDigitLEDFromASCII(byte digit, char letter){
 		Serial.write(_digit2);
 		Serial.write(_digit3);
 		Serial.write(_digit4);
+	}
+}
+
+//non blocking sensor functions, serial data has to be decrypted outside of library or in separate function
+void iRobotCreate2::requestSensorData(byte sensorID) {
+	byte packetID = 0;
+	if (sensorID > 100){
+		switch (sensorID){
+		case 101:
+		case 102:
+		case 103:
+		case 104:
+			packetID = 7;
+			break;
+		case 105:
+		case 106:
+		case 107:
+		case 108:
+			packetID = 14;
+			break;
+		case 109:
+		case 110:
+		case 111:
+		case 112:
+		case 113:
+		case 114:
+		case 115:
+		case 116:
+			packetID = 18;
+			break;
+		case 117:
+		case 118:
+		case 119:
+		case 120:
+		case 121:
+		case 122:
+			packetID = 45;
+			break;
+		}
+
+	}
+	else {
+		packetID = sensorID;
+	}
+	if (usingSoftSerial){
+		softSerial.write(142);
+		softSerial.write(packetID);
+	}
+	else {
+		Serial.write(142);
+		Serial.write(packetID);
+	}
+
+}
+void iRobotCreate2::requestSensorDataList(byte numOfRequests, byte requestIDs[]) {
+	byte packetIDs[numOfRequests];
+	for (int i = 0; i<numOfRequests; i++){
+		if (requestIDs[i] > 100){
+			switch (requestIDs[i]){
+			case 101:
+			case 102:
+			case 103:
+			case 104:
+				packetIDs[i] = 7;
+				break;
+			case 105:
+			case 106:
+			case 107:
+			case 108:
+				packetIDs[i] = 14;
+				break;
+			case 109:
+			case 110:
+			case 111:
+			case 112:
+			case 113:
+			case 114:
+			case 115:
+			case 116:
+				packetIDs[i] = 18;
+				break;
+			case 117:
+			case 118:
+			case 119:
+			case 120:
+			case 121:
+			case 122:
+				packetIDs[i] = 45;
+				break;
+			}
+
+		}
+		else {
+			packetIDs[i] = requestIDs[i];
+		}
+	}
+	if (usingSoftSerial){
+		softSerial.write(149);
+		softSerial.write(numOfRequests);
+		for (int i = 0; i < numOfRequests; i++){
+			softSerial.write(packetIDs[i]);
+		}
+	}
+	else {
+		Serial.write(149);
+		Serial.write(numOfRequests);
+		for (int i = 0; i < numOfRequests; i++){
+			Serial.write(packetIDs[i]);
+		}
+	}
+
+}
+void iRobotCreate2::beginDataStream(byte numOfRequests, byte requestIDs[]){
+	byte packetIDs[numOfRequests];
+	for (int i = 0; i<numOfRequests; i++){
+		if (requestIDs[i] > 100){
+			switch (requestIDs[i]){
+			case 101:
+			case 102:
+			case 103:
+			case 104:
+				packetIDs[i] = 7;
+				break;
+			case 105:
+			case 106:
+			case 107:
+			case 108:
+				packetIDs[i] = 14;
+				break;
+			case 109:
+			case 110:
+			case 111:
+			case 112:
+			case 113:
+			case 114:
+			case 115:
+			case 116:
+				packetIDs[i] = 18;
+				break;
+			case 117:
+			case 118:
+			case 119:
+			case 120:
+			case 121:
+			case 122:
+				packetIDs[i] = 45;
+				break;
+			}
+
+		}
+		else {
+			packetIDs[i] = requestIDs[i];
+		}
+	}
+	if (usingSoftSerial){
+		softSerial.write(148);
+		softSerial.write(numOfRequests);
+		for (int i = 0; i < numOfRequests; i++){
+			softSerial.write(packetIDs[i]);
+		}
+	}
+	else {
+		Serial.write(148);
+		Serial.write(numOfRequests);
+		for (int i = 0; i < numOfRequests; i++){
+			Serial.write(packetIDs[i]);
+		}
+	}
+
+}
+void iRobotCreate2::pauseStream(){
+	if (usingSoftSerial){
+		softSerial.write(150);
+		softSerial.write((byte)0x00);
+	}
+	else {
+		Serial.write(150);
+		Serial.write((byte)0x00);
+	}
+}
+void iRobotCreate2::resumeSteam(){
+	if (usingSoftSerial){
+		softSerial.write(150);
+		softSerial.write(1);
+	}
+	else {
+		Serial.write(150);
+		Serial.write(1);
+	}
+}
+
+//blocking sensor functions - these will request data and wait until a response is recieved, then return the response
+int iRobotCreate2::getSensorData(byte sensorID){
+	int returnVal;
+	byte packetID = 0;
+	if (sensorID > 100){
+		switch (sensorID){
+		case 101:
+		case 102:
+		case 103:
+		case 104:
+			packetID = 7;
+			break;
+		case 105:
+		case 106:
+		case 107:
+		case 108:
+			packetID = 14;
+			break;
+		case 109:
+		case 110:
+		case 111:
+		case 112:
+		case 113:
+		case 114:
+		case 115:
+		case 116:
+			packetID = 18;
+			break;
+		case 117:
+		case 118:
+		case 119:
+		case 120:
+		case 121:
+		case 122:
+			packetID = 45;
+			break;
+		}
+
+	}
+	else {
+		packetID = sensorID;
+	}
+	byte MSB = 0;
+	byte LSB = 0;
+	if (usingSoftSerial){
+		softSerial.write(142);
+		softSerial.write(packetID);
+		while (softSerial.available()){
+			MSB = softSerial.read();
+			LSB = softSerial.read();
+
+		}
+	}
+	else {
+		Serial.write(142);
+		Serial.write(packetID);
+		while (Serial.available()){
+			MSB = Serial.read();
+			LSB = Serial.read();
+		}
+	}
+	returnVal = (MSB << 7) | LSB;
+	return returnVal;
+}
+int * iRobotCreate2::getSensorData(byte numOfRequests, byte requestIDs[]){
+	int returnVal[numOfRequests];
+	byte packetIDs[numOfRequests];
+	for (int i = 0; i<numOfRequests; i++){
+		if (requestIDs[i] > 100){
+			switch (requestIDs[i]){
+			case 101:
+			case 102:
+			case 103:
+			case 104:
+				packetIDs[i] = 7;
+				break;
+			case 105:
+			case 106:
+			case 107:
+			case 108:
+				packetIDs[i] = 14;
+				break;
+			case 109:
+			case 110:
+			case 111:
+			case 112:
+			case 113:
+			case 114:
+			case 115:
+			case 116:
+				packetIDs[i] = 18;
+				break;
+			case 117:
+			case 118:
+			case 119:
+			case 120:
+			case 121:
+			case 122:
+				packetIDs[i] = 45;
+				break;
+			}
+
+		}
+		else {
+			packetIDs[i] = requestIDs[i];
+		}
+	}
+	if (usingSoftSerial){
+		softSerial.write(149);
+		softSerial.write(numOfRequests);
+		for (int i = 0; i < numOfRequests; i++){
+			softSerial.write(packetIDs[i]);
+		}
+	}
+	else {
+		Serial.write(149);
+		Serial.write(numOfRequests);
+		for (int i = 0; i < numOfRequests; i++){
+			Serial.write(packetIDs[i]);
+		}
+	}
+	byte MSB = 0;
+	byte LSB = 0;
+	if (usingSoftSerial){
+		while (softSerial.available()){
+			MSB = softSerial.read();
+			LSB = softSerial.read();
+
+		}
+	}
+	else {
+		while (Serial.available()){
+			MSB = Serial.read();
+			LSB = Serial.read();
+		}
+	}
+
+	return returnVal;
+}
+
+void iRobotCreate2::getSensorData(byte * buffer, byte bufferLength)
+{
+	while (bufferLength-- > 0)
+	{
+		unsigned long startTime = millis();
+		if (usingSoftSerial){
+			while (!softSerial->available())
+			{
+				// Look for a timeout
+				if (millis() > startTime + 200)
+					return false; // Timed out
+			}
+			*buffer++ = softSerial.read();
+		}
+		else {
+			while (!Serial->available())
+			{
+				// Look for a timeout
+				if (millis() > startTime + 200)
+					return false; // Timed out
+			}
+			*buffer++ = Serial.read();
+		}
 	}
 }
