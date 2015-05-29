@@ -5,12 +5,36 @@
 
 #include "iRobotCreate2.h"
 
+iRobotCreate2::iRobotCreate2(){
+	usingSoftSerial = false;
+	Serial.begin(19200);
+	_mainBrushDirection = false;
+	_sideBrushDirection = false;
+	_mainBrush = false;
+	_sideBrush = false;
+	_vacuum = false;
+	_mainBrushSpeed = 0;
+	_sideBrushSpeed = 0;
+	_vacuumSpeed = 0;
+	_debrisLED = false;
+	_spotLED = false;
+	_dockLED = false;
+	_warningLED = false;
+
+	_isPaused = false;
+	_isStreaming = false;
+
+	_digit1 = 0;
+	_digit2 = 0;
+	_digit3 = 0;
+	_digit4 = 0;
+}
+
 iRobotCreate2::iRobotCreate2(bool useSoftSerial, byte rxPin, byte txPin, byte baudRateChangePin){
 	usingSoftSerial = useSoftSerial;
 	_brcPin = baudRateChangePin;
 
 	if (useSoftSerial){
-		//SoftwareSerial newSS(rxPin, txPin);
 		softSerial = SoftwareSerial(rxPin, txPin);
 		softSerial.begin(19200);
 	}
@@ -738,6 +762,11 @@ void iRobotCreate2::resumeSteam(){
 }
 
 //blocking sensor functions - these will request data and wait until a response is recieved, then return the response
+
+/**
+	Returns the value from the requested id
+**/
+
 int iRobotCreate2::getSensorData(byte sensorID){
 	int returnVal;
 	byte packetID = 0;
@@ -801,6 +830,11 @@ int iRobotCreate2::getSensorData(byte sensorID){
 	returnVal = (MSB << 7) | LSB;
 	return returnVal;
 }
+
+/**
+	Returns an array of values containing all the ids
+**/
+
 int * iRobotCreate2::getSensorData(byte numOfRequests, byte requestIDs[]){
 	int returnVal[numOfRequests];
 	byte packetIDs[numOfRequests];
@@ -860,30 +894,36 @@ int * iRobotCreate2::getSensorData(byte numOfRequests, byte requestIDs[]){
 	}
 	byte MSB = 0;
 	byte LSB = 0;
+	byte pos = 0;
 	if (usingSoftSerial){
 		while (softSerial.available()){
 			MSB = softSerial.read();
 			LSB = softSerial.read();
-
+			returnVal[pos++] = (MSB << 7) | LSB;
 		}
 	}
 	else {
 		while (Serial.available()){
 			MSB = Serial.read();
 			LSB = Serial.read();
+			returnVal[pos++] = (MSB << 7) | LSB;
 		}
 	}
 
 	return returnVal;
 }
 
-void iRobotCreate2::getSensorData(byte * buffer, byte bufferLength)
+/**
+	Returns false if failed, due to a timeout
+	returns true if successful and fills the buffer provided by the pointer
+**/
+bool iRobotCreate2::getSensorData(byte * buffer, byte bufferLength)
 {
 	while (bufferLength-- > 0)
 	{
 		unsigned long startTime = millis();
 		if (usingSoftSerial){
-			while (!softSerial->available())
+			while (!softSerial.available())
 			{
 				// Look for a timeout
 				if (millis() > startTime + 200)
@@ -892,7 +932,7 @@ void iRobotCreate2::getSensorData(byte * buffer, byte bufferLength)
 			*buffer++ = softSerial.read();
 		}
 		else {
-			while (!Serial->available())
+			while (!Serial.available())
 			{
 				// Look for a timeout
 				if (millis() > startTime + 200)
@@ -901,4 +941,5 @@ void iRobotCreate2::getSensorData(byte * buffer, byte bufferLength)
 			*buffer++ = Serial.read();
 		}
 	}
+	return true;
 }
