@@ -314,35 +314,54 @@ void iRobotCreate2::drive(int velocity, int radius){
 	clamp(radius, -2000, 2000);
 	if (usingSoftSerial){
 		softSerial.write(137);
-		softSerial.write(velocity & 0x7F);
-		softSerial.write((velocity >> 7) & 0x7F);
-		softSerial.write(radius & 0x7F);
-		softSerial.write((radius >> 7) & 0x7F);
+		softSerial.write(velocity >> 8);
+		softSerial.write(velocity);
+		softSerial.write(radius >> 8);
+		softSerial.write(radius);
 	}
 	else {
-		softSerial.write(137);
-		softSerial.write(velocity & 0x7F);
-		softSerial.write((velocity >> 7) & 0x7F);
-		softSerial.write(radius & 0x7F);
-		softSerial.write((radius >> 7) & 0x7F);
+		Serial.write(137);
+		Serial.write(velocity >> 8);
+		Serial.write(velocity);
+		Serial.write(radius >> 8);
+		Serial.write(radius);
 	}
 }
+
+void iRobotCreate2::turnCW(unsigned short velocity, unsigned short degrees){
+	drive(velocity, -1);
+	clamp(velocity, 0, 500);
+	delay(2700);
+	//delay((1580 + 2.25*velocity)/velocity*degrees);
+	//delay((-0.03159720835 * velocity + 21.215270835) * degrees);
+	drive(0,0);
+}
+void iRobotCreate2::turnCCW(unsigned short velocity, unsigned short degrees){
+	drive(velocity, 1); 
+	clamp(velocity, 0, 500);
+	delay(6600);
+	//delay(2708.3333/velocity*degrees);
+	//delay((1580 + 2.25*velocity)/velocity*degrees);
+	//delay((-0.03159720835 * velocity + 21.215270835) * degrees);
+	drive(0,0);
+}
+	
 void iRobotCreate2::driveWheels(int right, int left){
 	clamp(right, -500, 500);
 	clamp(left, -500, 500);
 	if (usingSoftSerial){
 		softSerial.write(145);
-		softSerial.write(right & 0x7F);
-		softSerial.write((right >> 7) & 0x7F);
-		softSerial.write(left & 0x7F);
-		softSerial.write((left >> 7) & 0x7F);
+		softSerial.write(right >> 8);
+		softSerial.write(right);
+		softSerial.write(left >> 8);
+		softSerial.write(left);
 	}
 	else {
-		softSerial.write(145);
-		softSerial.write(right & 0x7F);
-		softSerial.write((right >> 7) & 0x7F);
-		softSerial.write(left & 0x7F);
-		softSerial.write((left >> 7) & 0x7F);
+		Serial.write(145);
+		Serial.write(right >> 8);
+		Serial.write(right);
+		Serial.write(left >> 8);
+		Serial.write(left);
 	}
 }
 void iRobotCreate2::driveLeft(int left){
@@ -356,17 +375,17 @@ void iRobotCreate2::driveWheelsPWM(int rightPWM, int leftPWM){
 	clamp(leftPWM, -255, 255);
 	if (usingSoftSerial){
 		softSerial.write(146);
-		softSerial.write(rightPWM & 0x7F);
-		softSerial.write((rightPWM >> 7) & 0x7F);
-		softSerial.write(leftPWM & 0x7F);
-		softSerial.write((leftPWM >> 7) & 0x7F);
+		softSerial.write(rightPWM >> 8);
+		softSerial.write(rightPWM);
+		softSerial.write(leftPWM >> 8);
+		softSerial.write(leftPWM);
 	}
 	else {
-		softSerial.write(146);
-		softSerial.write(rightPWM & 0x7F);
-		softSerial.write((rightPWM >> 7) & 0x7F);
-		softSerial.write(leftPWM & 0x7F);
-		softSerial.write((leftPWM >> 7) & 0x7F);
+		Serial.write(146);
+		Serial.write(rightPWM >> 8);
+		Serial.write(rightPWM);
+		Serial.write(leftPWM >> 8);
+		Serial.write(leftPWM);
 	}
 }
 //cleaning motors
@@ -813,21 +832,30 @@ int iRobotCreate2::getSensorData(byte sensorID){
 	if (usingSoftSerial){
 		softSerial.write(142);
 		softSerial.write(packetID);
-		while (softSerial.available()){
+		if(is_in_array(packetID)){
+			while (!softSerial.available());
+			returnVal = softSerial.read();
+		} else {
+			while (!softSerial.available());
 			MSB = softSerial.read();
 			LSB = softSerial.read();
-
+			returnVal = (MSB << 7) | LSB;
 		}
+		
 	}
 	else {
 		Serial.write(142);
 		Serial.write(packetID);
-		while (Serial.available()){
+		if(is_in_array(packetID)){
+			while (!Serial.available());
+			returnVal = Serial.read();
+		} else {
+			while (!Serial.available());
 			MSB = Serial.read();
 			LSB = Serial.read();
+			returnVal = (MSB << 7) | LSB;
 		}
 	}
-	returnVal = (MSB << 7) | LSB;
 	return returnVal;
 }
 
@@ -942,4 +970,13 @@ bool iRobotCreate2::getSensorData(byte * buffer, byte bufferLength)
 		}
 	}
 	return true;
+}
+
+bool iRobotCreate2::is_in_array(byte val){
+	for (int i=0;i<22;i++){
+		if (val == single_byte_packets[i]){
+			return true;
+		}
+	}
+	return false;
 }

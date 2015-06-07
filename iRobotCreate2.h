@@ -226,7 +226,6 @@ enum notes{
 	N_B7 = 107
 };
 
-//byte one_byte_data[22] = { 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 21, 24, 34, 35, 36, 37, 38, 45, 52, 53, 58};
 
 class iRobotCreate2 {
 public:
@@ -263,6 +262,8 @@ public:
 	void driveLeft(int left);
 	void driveRight(int right);
 	void driveWheelsPWM(int rightPWM, int leftPWM);
+	void turnCW(unsigned short velocity,unsigned short degrees);
+	void turnCCW(unsigned short velocity, unsigned short degrees);
 	//cleaning motors
 	void enableBrushes(bool mainBrushDirection, bool sideBrushDirection, bool mainBrush, bool vacuum, bool sideBrush);
 	void setMainBrush(bool direction, bool enable);
@@ -324,6 +325,9 @@ protected:
 	bool usingSoftSerial;
 	SoftwareSerial softSerial;
 
+private:
+	byte single_byte_packets[22] = { 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 21, 24, 34, 35, 36, 37, 38, 45, 52, 53, 58};
+	bool is_in_array(byte val);
 };
 
 #endif
